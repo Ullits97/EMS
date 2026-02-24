@@ -1,16 +1,16 @@
 # OOP Energy Management System (MVP)
 
-Python command-line MVP for a **time-step based** house energy simulation.
+Python GUI MVP for a **time-step based** house energy simulation.
 
 ## Implemented now
 
 - Single-zone house model with simple heat-loss approximation (extensible later).
-- Switchable heating source via OOP composition:
+- Switchable heating source:
   - district heating
   - electric resistance heater
 - EV with manual charging requests.
 - Time-of-use tariffs with separate carrier pricing (`electricity`, `district_heat`).
-- Console mini-figures (sparklines) and temporary CSV report overwritten every run.
+- Desktop GUI to run simulations and inspect results (summary, chart, hourly table).
 
 ## Why this architecture
 
@@ -20,10 +20,7 @@ Chosen patterns:
 - **Protocol-based polymorphism** for heating (`HeatingSource`) so source switching is runtime-configurable and new sources can be added without simulator rewrites.
 - **Use-case orchestrator** (`EnergyManagementSimulator`) as application layer that coordinates entities but does not contain device-specific physics.
 
-Why this is a good MVP trade-off:
-
-- Keeps model simple today (single zone, manual charging, no optimizer).
-- Avoids premature optimization logic while exposing stable extension points for smart charging, MPC/LP optimizers, PV/battery, and multi-zone thermal models.
+This keeps the MVP simple now while exposing stable extension points for smart charging, optimization, PV/battery, and multi-zone thermal models.
 
 ## Run
 
@@ -31,19 +28,12 @@ Why this is a good MVP trade-off:
 python3 main.py
 ```
 
-Switch heating source:
+In the GUI:
 
-```bash
-python3 main.py --heating-source electric
-```
+- choose hours, EV manual charging amount and hour
+- choose heating source (district/electric)
+- click **Run simulation** to refresh overview
 
-Custom run:
+## Notes
 
-```bash
-python3 main.py --hours 72 --ev-charge-kwh 10 --ev-charge-hour 1 --heating-source district
-```
-
-## Output
-
-- In-app summary and sparklines.
-- Temporary CSV report in system temp dir (typically `/tmp/ems_report_latest.csv`).
+The previous temp-file CSV report path has been replaced by an interactive GUI overview, per request.
