@@ -1,29 +1,35 @@
 # OOP Energy Management System (MVP)
 
-Python command-line MVP for a **time-step based** house energy simulation.
+Python **web GUI** MVP for a time-step house energy simulation.
 
-## Implemented now
+## Features
 
-- Single-zone house model with simple heat-loss approximation (extensible later).
-- Switchable heating source via OOP composition:
-  - district heating
-  - electric resistance heater
-- EV with manual charging requests.
-- Time-of-use tariffs with separate carrier pricing (`electricity`, `district_heat`).
-- Console mini-figures (sparklines) and temporary CSV report overwritten every run.
+- Single-zone thermal house model.
+- **Heating source library** with reusable source specs and factory construction.
+- Manual EV charging input.
+- Time-of-use tariffs for electricity and district heat.
+- Browser GUI with:
+  - input controls,
+  - KPI overview,
+  - inline line chart,
+  - hourly result table.
 
-## Why this architecture
+## Heating source library
 
-Chosen patterns:
+Heating source definitions live in `ems/heating_library.py` and include metadata + defaults.
 
-- **Composition + explicit domain entities** (`House`, `HeatingSource`, `ElectricVehicle`, `TariffBook`) to keep responsibilities isolated.
-- **Protocol-based polymorphism** for heating (`HeatingSource`) so source switching is runtime-configurable and new sources can be added without simulator rewrites.
-- **Use-case orchestrator** (`EnergyManagementSimulator`) as application layer that coordinates entities but does not contain device-specific physics.
+Current catalog:
 
-Why this is a good MVP trade-off:
+- `district_standard`
+- `district_high_capacity`
+- `electric_resistance`
+- `electric_panel_low_power`
 
-- Keeps model simple today (single zone, manual charging, no optimizer).
-- Avoids premature optimization logic while exposing stable extension points for smart charging, MPC/LP optimizers, PV/battery, and multi-zone thermal models.
+List them from CLI:
+
+```bash
+python3 main.py --list-heating-sources
+```
 
 ## Run
 
@@ -31,19 +37,14 @@ Why this is a good MVP trade-off:
 python3 main.py
 ```
 
-Switch heating source:
+Then open `http://127.0.0.1:8000` (opened automatically unless `--no-browser`).
+
+Optional:
 
 ```bash
-python3 main.py --heating-source electric
+python3 main.py --host 0.0.0.0 --port 8000 --no-browser
 ```
 
-Custom run:
+## Why this opens reliably
 
-```bash
-python3 main.py --hours 72 --ev-charge-kwh 10 --ev-charge-hour 1 --heating-source district
-```
-
-## Output
-
-- In-app summary and sparklines.
-- Temporary CSV report in system temp dir (typically `/tmp/ems_report_latest.csv`).
+The GUI is browser-based (served over HTTP), so it works in headless/server environments where desktop Tk windows cannot open due to missing display.
