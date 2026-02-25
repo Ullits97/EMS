@@ -42,7 +42,7 @@ class EnergyManagementSimulator:
             hour_of_day = (start_hour + i) % 24
 
             if hour_data.temperature_setpoint_c is not None:
-                self.house.target_temperature_c = hour_data.temperature_setpoint_c
+                self.house.set_target_temperature(hour_data.temperature_setpoint_c)
 
             heating_requested_kwh = self.house.estimate_hourly_heat_demand(hour_data.outdoor_temperature_c)
             heating_delivered_kwh = self.heating_source.deliver_heat(heating_requested_kwh)

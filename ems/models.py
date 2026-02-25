@@ -57,9 +57,9 @@ class HeatDemandResult:
 
 @dataclass
 class House:
-    """Single-zone thermal model with linear heat-loss approximation.
+    """Single-zone thermal model with linear outside-temperature dependent heat loss.
 
-    UA is overall heat transfer coefficient [kW/K].
+    `ua_kw_per_k` is the heat-loss factor [kW/K]. It can be varied at runtime.
     Thermal mass is equivalent heat capacity [kWh/K].
     """
 
@@ -69,12 +69,27 @@ class House:
     indoor_temperature_c: float
     target_temperature_c: float
 
-    def estimate_hourly_heat_demand(self, outdoor_temperature_c: float) -> float:
-        delta_t = max(self.target_temperature_c - outdoor_temperature_c, 0.0)
+    def set_target_temperature(self, target_temperature_c: float) -> None:
+        self.target_temperature_c = target_temperature_c
+
+    def set_heat_loss_factor(self, ua_kw_per_k: float) -> None:
+        if ua_kw_per_k <= 0:
+            raise ValueError("ua_kw_per_k must be > 0")
+        self.ua_kw_per_k = ua_kw_per_k
+
+    def compute_heat_loss_kwh(self, outdoor_temperature_c: float, indoor_temperature_c: float | None = None) -> float:
+        indoor = self.indoor_temperature_c if indoor_temperature_c is None else indoor_temperature_c
+        delta_t = max(indoor - outdoor_temperature_c, 0.0)
         return self.ua_kw_per_k * delta_t
 
+    def estimate_hourly_heat_demand(self, outdoor_temperature_c: float) -> float:
+        return self.compute_heat_loss_kwh(
+            outdoor_temperature_c=outdoor_temperature_c,
+            indoor_temperature_c=self.target_temperature_c,
+        )
+
     def advance_one_hour(self, supplied_heat_kwh: float, outdoor_temperature_c: float) -> HeatDemandResult:
-        heat_loss_kwh = max((self.indoor_temperature_c - outdoor_temperature_c) * self.ua_kw_per_k, 0.0)
+        heat_loss_kwh = self.compute_heat_loss_kwh(outdoor_temperature_c=outdoor_temperature_c)
         net_energy_kwh = supplied_heat_kwh - heat_loss_kwh
         self.indoor_temperature_c += net_energy_kwh / self.thermal_mass_kwh_per_k
         return HeatDemandResult(heat_loss_kwh=heat_loss_kwh, indoor_temperature_c=self.indoor_temperature_c)
