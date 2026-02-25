@@ -7,15 +7,8 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from ems.models import (
-    DistrictHeatingSource,
-    ElectricResistanceHeater,
-    ElectricVehicle,
-    EnergyCarrier,
-    House,
-    TariffBook,
-    TimeOfUseTariff,
-)
+from ems.heating_library import create_heating_source, get_heating_source_spec, list_heating_sources
+from ems.models import ElectricVehicle, EnergyCarrier, House, TariffBook, TimeOfUseTariff
 from ems.simulation import EnergyManagementSimulator, HourInput
 
 
@@ -24,14 +17,36 @@ class InputState:
     hours: int = 48
     ev_charge_kwh: float = 7.0
     ev_charge_hour: int = 22
-    heating_source: str = "district"
+    heating_source: str = "district_standard"
 
 
 def default_tariff_book() -> TariffBook:
     electricity_tou = TimeOfUseTariff(
         hourly_prices=[
-            0.12, 0.12, 0.11, 0.11, 0.11, 0.13, 0.17, 0.20, 0.22, 0.23, 0.21, 0.19,
-            0.18, 0.18, 0.19, 0.23, 0.27, 0.31, 0.29, 0.24, 0.20, 0.17, 0.15, 0.13,
+            0.12,
+            0.12,
+            0.11,
+            0.11,
+            0.11,
+            0.13,
+            0.17,
+            0.20,
+            0.22,
+            0.23,
+            0.21,
+            0.19,
+            0.18,
+            0.18,
+            0.19,
+            0.23,
+            0.27,
+            0.31,
+            0.29,
+            0.24,
+            0.20,
+            0.17,
+            0.15,
+            0.13,
         ]
     )
     district_heat_tou = TimeOfUseTariff(hourly_prices=[0.09] * 24)
@@ -50,13 +65,27 @@ def build_hourly_inputs(hours: int, manual_ev_charge_kwh: float, charge_start_ho
         outdoor = 1.0 if 8 <= hod <= 18 else -4.0
         ev_request = manual_ev_charge_kwh if hod == charge_start_hour else 0.0
         setpoint = 21.0 if 6 <= hod <= 22 else 19.0
-        inputs.append(HourInput(outdoor_temperature_c=outdoor, ev_charge_request_kwh=ev_request, temperature_setpoint_c=setpoint))
+        inputs.append(
+            HourInput(
+                outdoor_temperature_c=outdoor,
+                ev_charge_request_kwh=ev_request,
+                temperature_setpoint_c=setpoint,
+            )
+        )
     return inputs
+
+
+def _normalize_heating_source(raw_key: str) -> str:
+    try:
+        get_heating_source_spec(raw_key)
+        return raw_key
+    except ValueError:
+        return "district_standard"
 
 
 def _simulate(state: InputState):
     house = House(140.0, 0.18, 18.0, 20.0, 21.0)
-    heating_source = DistrictHeatingSource(max_heat_output_kw=12.0) if state.heating_source == "district" else ElectricResistanceHeater(max_heat_output_kw=9.0, cop=1.0)
+    heating_source = create_heating_source(state.heating_source)
     ev = ElectricVehicle(70.0, 20.0, 11.0)
     sim = EnergyManagementSimulator(house, heating_source, ev, default_tariff_book())
     report = sim.run(build_hourly_inputs(state.hours, state.ev_charge_kwh, state.ev_charge_hour))
@@ -81,6 +110,14 @@ def _render_page(state: InputState) -> str:
     indoor = [s.indoor_temperature_c for s in report.steps]
     elec = [s.electricity_import_kwh for s in report.steps]
     dist = [s.district_heat_import_kwh for s in report.steps]
+
+    option_html = "".join(
+        (
+            f"<option value='{spec.key}' {'selected' if state.heating_source == spec.key else ''}>"
+            f"{html.escape(spec.display_name)}</option>"
+        )
+        for spec in list_heating_sources()
+    )
 
     rows = "".join(
         f"<tr><td>{s.hour_index}</td><td>{s.indoor_temperature_c:.2f}</td><td>{s.electricity_import_kwh:.2f}</td>"
@@ -111,8 +148,7 @@ def _render_page(state: InputState) -> str:
     <label>EV charge hour<br><input name='ev_charge_hour' type='number' min='0' max='23' value='{state.ev_charge_hour}'></label>
     <label>Heating source<br>
       <select name='heating_source'>
-        <option value='district' {'selected' if state.heating_source=='district' else ''}>district</option>
-        <option value='electric' {'selected' if state.heating_source=='electric' else ''}>electric</option>
+        {option_html}
       </select>
     </label>
     <button type='submit'>Run simulation</button>
@@ -154,7 +190,7 @@ def run_web_gui(host: str = "127.0.0.1", port: int = 8000, open_browser: bool = 
                 hours=max(1, int(query.get("hours", [48])[0])),
                 ev_charge_kwh=max(0.0, float(query.get("ev_charge_kwh", [7.0])[0])),
                 ev_charge_hour=int(query.get("ev_charge_hour", [22])[0]) % 24,
-                heating_source=query.get("heating_source", ["district"])[0] if query.get("heating_source", ["district"])[0] in {"district", "electric"} else "district",
+                heating_source=_normalize_heating_source(query.get("heating_source", ["district_standard"])[0]),
             )
             content = _render_page(state).encode("utf-8")
             self.send_response(200)
