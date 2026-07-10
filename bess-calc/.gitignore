@@ -1,0 +1,11 @@
+# Raw ingestion downloads are never committed (SPEC §4).
+data/raw/*
+!data/raw/.gitkeep
+
+widget/node_modules/
+
+# Commit the built widget bundle so the demo runs without a Node toolchain;
+# root .gitignore excludes dist/ so re-include just the bundle.
+!widget/dist/
+widget/dist/*
+!widget/dist/widget.js

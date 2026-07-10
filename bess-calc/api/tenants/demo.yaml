@@ -1,0 +1,37 @@
+# Demo tenant: branding + battery product catalog.
+# TODO(product): replace with real installer branding and priced products.
+
+branding:
+  name: "Demo Energi ApS"
+  logo_url: "https://placehold.co/160x48?text=Demo+Energi"
+  primary_color: "#1d7a5f"
+  secondary_color: "#123f31"
+
+products:
+  - name: "Kompakt 5 kWh"
+    capacity_kwh: 5.0
+    power_kw: 3.0
+    roundtrip_efficiency: 0.93
+    depth_of_discharge: 0.90
+    calendar_degradation_pct_yr: 1.5
+    cycle_life: 6000
+    lifetime_years: 15
+    price_dkk_installed: 32000
+  - name: "Standard 10 kWh"
+    capacity_kwh: 10.0
+    power_kw: 5.0
+    roundtrip_efficiency: 0.92
+    depth_of_discharge: 0.90
+    calendar_degradation_pct_yr: 1.5
+    cycle_life: 6000
+    lifetime_years: 15
+    price_dkk_installed: 52000
+  - name: "Stor 15 kWh"
+    capacity_kwh: 15.0
+    power_kw: 7.5
+    roundtrip_efficiency: 0.92
+    depth_of_discharge: 0.90
+    calendar_degradation_pct_yr: 1.5
+    cycle_life: 6000
+    lifetime_years: 15
+    price_dkk_installed: 72000

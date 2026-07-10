@@ -1,0 +1,16 @@
+# Engine-wide defaults and tolerances.
+
+realism_factor: 0.90 # scales strategy-B gains vs perfect-information upper bound
+discount_rate: 0.04
+start_year: 2026 # simulation year 1 (tax-timeline lookup)
+
+energy_balance_tolerance_kwh: 1.0e-6 # per 15-min step (SPEC §7.1)
+decomposition_tolerance_dkk: 1.0 # per year (SPEC §7.3)
+
+strategy_b:
+  # Daily-horizon rule set (SPEC §7.2). Fractions of the day's slots ranked by
+  # buy price. Chosen by sweep so B dominates A across tax scenarios: grid
+  # charging only in the truly cheapest quarter avoids crowding out PV surplus.
+  charge_quantile: 0.25 # grid charging allowed in the cheapest 25% of slots
+  discharge_quantile: 0.25 # discharge to load in all slots above this rank (excl. charge slots)
+  no_charge_quantile: 0.75 # never charge (incl. from PV) in the top-priced quartile

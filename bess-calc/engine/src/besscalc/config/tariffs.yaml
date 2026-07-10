@@ -1,0 +1,47 @@
+# Grid tariffs, DKK/kWh EX VAT.
+#
+# ALL RATES BELOW ARE PLACEHOLDERS (realistic order of magnitude, based on
+# publicly known 2024/25 C-customer time-of-use levels) and are marked
+# "TODO verify". Populate from each DSO's published price sheet or a
+# DatahubPricelist export BEFORE results are shown to anyone. (SPEC §6.4)
+#
+# Season convention: winter = Oct-Mar, summer = Apr-Sep (Danish DSO standard).
+# Hours are local time (Europe/Copenhagen), half-open ranges "HH-HH".
+
+meta:
+  version_date: "2026-01-01" # TODO verify: set to the DSO price-sheet date actually used
+  verified: false
+
+energinet:
+  # Flat adders applied to all consumption, DKK/kWh ex VAT.
+  system_tariff_dkk_kwh: 0.051 # TODO verify
+  transmission_tariff_dkk_kwh: 0.074 # TODO verify
+
+dsos:
+  radius:
+    display_name: "Radius Elnet"
+    bands:
+      - { season: winter, name: low, hours: "00-06", rate_dkk_kwh: 0.1101 } # TODO verify
+      - { season: winter, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.3302 } # TODO verify
+      - { season: winter, name: peak, hours: "17-21", rate_dkk_kwh: 0.9907 } # TODO verify
+      - { season: summer, name: low, hours: "00-06", rate_dkk_kwh: 0.1101 } # TODO verify
+      - { season: summer, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.1651 } # TODO verify
+      - { season: summer, name: peak, hours: "17-21", rate_dkk_kwh: 0.4295 } # TODO verify
+  n1:
+    display_name: "N1"
+    bands:
+      - { season: winter, name: low, hours: "00-06", rate_dkk_kwh: 0.0842 } # TODO verify
+      - { season: winter, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.2526 } # TODO verify
+      - { season: winter, name: peak, hours: "17-21", rate_dkk_kwh: 0.7578 } # TODO verify
+      - { season: summer, name: low, hours: "00-06", rate_dkk_kwh: 0.0842 } # TODO verify
+      - { season: summer, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.1263 } # TODO verify
+      - { season: summer, name: peak, hours: "17-21", rate_dkk_kwh: 0.3284 } # TODO verify
+  cerius:
+    display_name: "Cerius"
+    bands:
+      - { season: winter, name: low, hours: "00-06", rate_dkk_kwh: 0.1156 } # TODO verify
+      - { season: winter, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.3467 } # TODO verify
+      - { season: winter, name: peak, hours: "17-21", rate_dkk_kwh: 1.0401 } # TODO verify
+      - { season: summer, name: low, hours: "00-06", rate_dkk_kwh: 0.1156 } # TODO verify
+      - { season: summer, name: high, hours: "06-17,21-24", rate_dkk_kwh: 0.1734 } # TODO verify
+      - { season: summer, name: peak, hours: "17-21", rate_dkk_kwh: 0.4507 } # TODO verify
