@@ -1,0 +1,26 @@
+# Danish electricity taxes and sell-side fees. DKK/kWh ex VAT unless noted.
+#
+# VALUES MARKED "TODO verify" MUST BE CHECKED AGAINST CURRENT LAW before
+# results are shown externally. (SPEC §6.5)
+
+vat_rate: 0.25 # applied to the full buy-side sum
+
+# elafgift per scenario, year-indexed so a mid-horizon change is possible.
+# "default" applies to every simulation year not listed explicitly.
+elafgift_dkk_kwh:
+  low_2026_27:
+    2026: 0.0080 # TODO verify: politically reduced rate 2026
+    2027: 0.0080 # TODO verify: politically reduced rate 2027
+    default: 0.7616 # TODO verify: normalized statutory rate from 2028
+  normalized_post_2027:
+    default: 0.7616 # TODO verify: full statutory rate all years
+
+# Sell side: sell_price = spot - feed_in_fees.
+# No elafgift or VAT on revenue for private prosumers.
+# TODO verify: current prosumer feed-in fee levels and tax treatment.
+feed_in_fees_dkk_kwh: 0.009 # TODO verify (Energinet indfoedningstarif + balancing)
+
+# Informational only — engine does NOT compute income tax (SPEC §6.5).
+sell_side_note_da: >-
+  Salg af el over det skattefrie bundfradrag kan være skattepligtigt;
+  beregningen medregner ikke indkomstskat af salg.
