@@ -10,10 +10,17 @@ interface Props {
   apiBase: string;
 }
 
+type Alternative = { product: BatterySpec; result: SimulationResult };
+
 type Phase =
   | { step: "input" }
   | { step: "loading" }
-  | { step: "result"; result: SimulationResult; battery: BatterySpec }
+  | {
+      step: "result";
+      result: SimulationResult;
+      battery: BatterySpec;
+      alternatives: Alternative[] | null;
+    }
   | { step: "error"; message: string };
 
 function buildRequest(values: InputValues, battery: BatterySpec): SimulationRequest {
@@ -62,12 +69,17 @@ export function App({ tenantId, apiBase }: Props) {
             ? b
             : a,
         );
-        setPhase({ step: "result", result: best.result, battery: best.product });
+        setPhase({
+          step: "result",
+          result: best.result,
+          battery: best.product,
+          alternatives: results,
+        });
       } else {
         const battery = catalog.products.find((p) => p.name === values.batteryName);
         if (!battery) throw new Error("Ukendt batterimodel");
         const result = await client.simulate(buildRequest(values, battery));
-        setPhase({ step: "result", result, battery });
+        setPhase({ step: "result", result, battery, alternatives: null });
       }
     } catch (err) {
       setPhase({ step: "error", message: (err as Error).message });
@@ -117,6 +129,7 @@ export function App({ tenantId, apiBase }: Props) {
         <ResultStep
           result={phase.result}
           battery={phase.battery}
+          alternatives={phase.alternatives}
           onBack={() => setPhase({ step: "input" })}
         />
       ) : null}

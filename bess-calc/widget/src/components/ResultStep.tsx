@@ -9,10 +9,20 @@ import {
   YAxis,
 } from "recharts";
 import type { BatterySpec, SimulationResult, StrategyEconomics } from "../types";
+import { dkk, years } from "../format";
+import { assumptionSeverity, hasSyntheticWarning, unverifiedNotes } from "../assumptions";
+import { WorkedExample } from "./WorkedExample";
+import { BatteryComparisonTable } from "./BatteryComparisonTable";
+
+interface Alternative {
+  product: BatterySpec;
+  result: SimulationResult;
+}
 
 interface Props {
   result: SimulationResult;
   battery: BatterySpec;
+  alternatives: Alternative[] | null;
   onBack: () => void;
 }
 
@@ -24,8 +34,11 @@ const COLORS = {
   arbitrage: "#eda100",
 };
 
-const dkk = (v: number): string =>
-  `${Math.round(v).toLocaleString("da-DK")} kr.`;
+const DSO_LABELS: Record<string, string> = {
+  n1: "N1",
+  radius: "Radius",
+  cerius: "Cerius",
+};
 
 function savingsInterval(s: StrategyEconomics): string {
   const low = Math.round(s.annual_savings_dkk_low);
@@ -34,8 +47,12 @@ function savingsInterval(s: StrategyEconomics): string {
   return `${low.toLocaleString("da-DK")}–${high.toLocaleString("da-DK")} kr./år`;
 }
 
-const years = (v: number): string =>
-  v.toLocaleString("da-DK", { maximumFractionDigits: 1 });
+function year1Interval(s: StrategyEconomics): string {
+  const low = Math.round(Math.min(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk));
+  const high = Math.round(Math.max(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk));
+  if (Math.abs(high - low) < 50) return dkk(low);
+  return `${dkk(low)} – ${dkk(high)}`;
+}
 
 function paybackInterval(s: StrategyEconomics, lifetime: number): string {
   const { payback_years_low: low, payback_years_high: high } = s;
@@ -46,7 +63,7 @@ function paybackInterval(s: StrategyEconomics, lifetime: number): string {
   return `${years((low ?? high) as number)} år eller mere`;
 }
 
-export function ResultStep({ result, battery, onBack }: Props) {
+export function ResultStep({ result, battery, alternatives, onBack }: Props) {
   const strategyB = result.strategies.price_optimized;
   const strategyA = result.strategies.self_consumption;
   const lifetime = battery.lifetime_years;
@@ -58,11 +75,41 @@ export function ResultStep({ result, battery, onBack }: Props) {
     Arbitrage: Math.max(Math.round(s.year1.savings_arbitrage_dkk), 0),
   }));
 
+  const syntheticWarning = hasSyntheticWarning(result.assumptions);
+  const unverified = unverifiedNotes(result.assumptions);
+  const echo = result.input_echo;
+
   return (
     <div className="bc-result">
       <button className="bc-back" onClick={onBack}>
         ← Ret indtastning
       </button>
+
+      {syntheticWarning ? (
+        <div className="bc-callout bc-callout--critical">
+          <span className="bc-callout-icon" aria-hidden="true">
+            ⚠
+          </span>
+          <span>
+            {syntheticWarning}{" "}
+            <a className="bc-callout-link" href="#bc-forudsaetninger">
+              Se alle forudsætninger nedenfor.
+            </a>
+          </span>
+        </div>
+      ) : unverified.length > 0 ? (
+        <div className="bc-callout bc-callout--warning">
+          <span className="bc-callout-icon" aria-hidden="true">
+            ⚠
+          </span>
+          <span>
+            Nogle satser i beregningen er endnu ikke verificeret.{" "}
+            <a className="bc-callout-link" href="#bc-forudsaetninger">
+              Se alle forudsætninger nedenfor.
+            </a>
+          </span>
+        </div>
+      ) : null}
 
       <div className="bc-headline">
         <div className="bc-stat">
@@ -85,6 +132,9 @@ export function ResultStep({ result, battery, onBack }: Props) {
           </span>
         </div>
       </div>
+
+      <h3 className="bc-section-title">Sådan hænger tallene sammen (år 1)</h3>
+      <WorkedExample strategy={strategyB} />
 
       <h3 className="bc-section-title">Hvor kommer besparelsen fra? (år 1)</h3>
       <div className="bc-chart">
@@ -136,48 +186,100 @@ export function ResultStep({ result, battery, onBack }: Props) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      <p className="bc-chart-caption">
+        Bjælken for '{strategyB.label_da}' svarer til tallene ovenfor.
+      </p>
+
+      {alternatives && alternatives.length > 1 ? (
+        <>
+          <h3 className="bc-section-title">Sammenligning af batteristørrelser (nutidsværdi)</h3>
+          <BatteryComparisonTable alternatives={alternatives} selectedName={battery.name} />
+        </>
+      ) : null}
 
       <h3 className="bc-section-title">Standard vs. prisoptimeret styring</h3>
-      <table className="bc-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>{strategyA.label_da}</th>
-            <th>{strategyB.label_da}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Besparelse år 1</td>
-            <td>{dkk(strategyA.year1.savings_total_dkk)}</td>
-            <td>{dkk(strategyB.year1.savings_total_dkk)}</td>
-          </tr>
-          <tr>
-            <td>Gns. årlig besparelse ({lifetime} år)</td>
-            <td>{savingsInterval(strategyA)}</td>
-            <td>{savingsInterval(strategyB)}</td>
-          </tr>
-          <tr>
-            <td>Tilbagebetalingstid</td>
-            <td>{paybackInterval(strategyA, lifetime)}</td>
-            <td>{paybackInterval(strategyB, lifetime)}</td>
-          </tr>
-          <tr>
-            <td>Nutidsværdi (NPV)</td>
-            <td>{dkk(strategyA.npv_dkk)}</td>
-            <td>{dkk(strategyB.npv_dkk)}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="bc-table-wrap">
+        <table className="bc-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>{strategyA.label_da}</th>
+              <th>
+                {strategyB.label_da}
+                <span className="bc-badge">Anbefalet</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Besparelse år 1</td>
+              <td>{year1Interval(strategyA)}</td>
+              <td>{year1Interval(strategyB)}</td>
+            </tr>
+            <tr>
+              <td>Gns. årlig besparelse ({lifetime} år)</td>
+              <td>{savingsInterval(strategyA)}</td>
+              <td>{savingsInterval(strategyB)}</td>
+            </tr>
+            <tr>
+              <td>Tilbagebetalingstid</td>
+              <td>{paybackInterval(strategyA, lifetime)}</td>
+              <td>{paybackInterval(strategyB, lifetime)}</td>
+            </tr>
+            <tr>
+              <td>Nutidsværdi (NPV)</td>
+              <td>{dkk(strategyA.npv_dkk)}</td>
+              <td>{dkk(strategyB.npv_dkk)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      {/* Collapsible per SPEC §9, but open by default so the assumptions are
-          visible without user interaction (SPEC §11 DoD). */}
-      <details className="bc-assumptions" open>
+      <details className="bc-details">
+        <summary>Dine indtastninger</summary>
+        <dl>
+          <dt>Elområde</dt>
+          <dd>
+            {echo.site.price_area} · netselskab {DSO_LABELS[echo.site.dso] ?? echo.site.dso}
+          </dd>
+          <dt>Forbrug</dt>
+          <dd>
+            {echo.consumption.annual_kwh.toLocaleString("da-DK")} kWh/år (profil "
+            {echo.consumption.profile}")
+          </dd>
+          <dt>Solceller</dt>
+          <dd>
+            {echo.pv
+              ? `${echo.pv.kwp} kWp, orientering ${echo.pv.orientation}`
+              : "Ingen solceller"}
+          </dd>
+          <dt>Batteri</dt>
+          <dd>
+            {battery.name} — {battery.capacity_kwh} kWh ·{" "}
+            {battery.price_dkk_installed.toLocaleString("da-DK")} kr. installeret
+          </dd>
+          <dt>Afgiftsscenarie</dt>
+          <dd>{echo.scenario.tax_scenario}</dd>
+        </dl>
+      </details>
+
+      <details className="bc-details" id="bc-forudsaetninger" open>
         <summary>Forudsætninger</summary>
         <ul>
-          {result.assumptions.map((a) => (
-            <li key={a}>{a}</li>
-          ))}
+          {result.assumptions.map((a) => {
+            const severity = assumptionSeverity(a);
+            const className =
+              severity === "critical"
+                ? "bc-assumption--critical"
+                : severity === "warning"
+                  ? "bc-assumption--warning"
+                  : undefined;
+            return (
+              <li key={a} className={className}>
+                {a}
+              </li>
+            );
+          })}
         </ul>
         <p className="bc-hint">
           Referenceår {result.reference_year} · motor v{result.engine_version}

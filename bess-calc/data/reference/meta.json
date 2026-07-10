@@ -3,6 +3,6 @@
   "spot_source": "SYNTHETIC placeholder (seed 42) — run fetch_spot.py for real data",
   "pv_source": "SYNTHETIC placeholder (seed 42) — run fetch_pv.py for real data",
   "synthetic": true,
-  "updated_at": "2026-07-10T08:25:16+00:00",
+  "updated_at": "2026-07-10T15:11:24+00:00",
   "consumption_source": "synthetic standard profiles (seed 20260101)"
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { mapPostcode } from "../postcode";
 import type { BatterySpec } from "../types";
+import { InfoTooltip } from "./InfoTooltip";
 
 export interface InputValues {
   postcode: number;
@@ -29,6 +30,7 @@ export function InputStep({ products, onSubmit }: Props) {
   const [postcodeText, setPostcodeText] = useState("");
   const [presetIndex, setPresetIndex] = useState(1);
   const [customKwh, setCustomKwh] = useState<string>("");
+  const [showCustomKwh, setShowCustomKwh] = useState(false);
   const [hasPv, setHasPv] = useState(false);
   const [pvKwp, setPvKwp] = useState("6");
   const [pvOrientation, setPvOrientation] = useState<"S" | "SE_SW" | "E_W">("S");
@@ -64,120 +66,154 @@ export function InputStep({ products, onSubmit }: Props) {
 
   return (
     <form className="bc-form" onSubmit={submit}>
-      <div className="bc-field">
-        <label className="bc-label" htmlFor="bc-postcode">
-          Postnummer
-        </label>
-        <input
-          id="bc-postcode"
-          className="bc-input"
-          inputMode="numeric"
-          maxLength={4}
-          placeholder="fx 8000"
-          value={postcodeText}
-          onChange={(e) => setPostcodeText(e.target.value.replace(/\D/g, ""))}
-        />
-        {site ? <p className="bc-hint">Netområde: {site.label}</p> : null}
-        {postcodeInvalid ? <p className="bc-error">Ukendt postnummer.</p> : null}
-      </div>
+      <fieldset className="bc-fieldset">
+        <legend className="bc-legend">Om din bolig</legend>
 
-      <div className="bc-field">
-        <label className="bc-label" htmlFor="bc-household">
-          Husstandstype
-        </label>
-        <select
-          id="bc-household"
-          className="bc-input"
-          value={presetIndex}
-          onChange={(e) => {
-            setPresetIndex(parseInt(e.target.value, 10));
-            setCustomKwh("");
-          }}
-        >
-          {HOUSEHOLD_PRESETS.map((p, i) => (
-            <option key={p.label} value={i}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="bc-field">
-        <label className="bc-label" htmlFor="bc-kwh">
-          Årsforbrug (kWh) — valgfrit, overstyrer husstandstypen
-        </label>
-        <input
-          id="bc-kwh"
-          className="bc-input"
-          inputMode="numeric"
-          placeholder={String(preset.kwh)}
-          value={customKwh}
-          onChange={(e) => setCustomKwh(e.target.value.replace(/\D/g, ""))}
-        />
-      </div>
-
-      <div className="bc-field">
-        <label className="bc-check">
+        <div className="bc-field">
+          <label className="bc-label" htmlFor="bc-postcode">
+            Postnummer
+            <InfoTooltip id="bc-tip-postcode" label="Forklaring: postnummer">
+              Postnummeret bestemmer dit netselskab og elprisområde (DK1/DK2), som
+              påvirker tariffer og elpris i beregningen.
+            </InfoTooltip>
+          </label>
           <input
-            type="checkbox"
-            checked={hasPv}
-            onChange={(e) => setHasPv(e.target.checked)}
-          />{" "}
-          Jeg har (eller får) solceller
-        </label>
-      </div>
-
-      {hasPv ? (
-        <div className="bc-row">
-          <div className="bc-field">
-            <label className="bc-label" htmlFor="bc-kwp">
-              Solcelleanlæg (kWp)
-            </label>
-            <input
-              id="bc-kwp"
-              className="bc-input"
-              inputMode="decimal"
-              value={pvKwp}
-              onChange={(e) => setPvKwp(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
-            />
-          </div>
-          <div className="bc-field">
-            <label className="bc-label" htmlFor="bc-orient">
-              Orientering
-            </label>
-            <select
-              id="bc-orient"
-              className="bc-input"
-              value={pvOrientation}
-              onChange={(e) => setPvOrientation(e.target.value as "S" | "SE_SW" | "E_W")}
-            >
-              <option value="S">Syd</option>
-              <option value="SE_SW">Sydøst/Sydvest</option>
-              <option value="E_W">Øst/Vest</option>
-            </select>
-          </div>
+            id="bc-postcode"
+            className="bc-input"
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="fx 8000"
+            value={postcodeText}
+            onChange={(e) => setPostcodeText(e.target.value.replace(/\D/g, ""))}
+          />
+          {site ? <p className="bc-hint">Netområde: {site.label}</p> : null}
+          {postcodeInvalid ? <p className="bc-error">Ukendt postnummer.</p> : null}
         </div>
-      ) : null}
 
-      <div className="bc-field">
-        <label className="bc-label" htmlFor="bc-battery">
-          Batteri
-        </label>
-        <select
-          id="bc-battery"
-          className="bc-input"
-          value={batteryName}
-          onChange={(e) => setBatteryName(e.target.value)}
-        >
-          <option value="auto">Anbefal størrelse (bedste økonomi)</option>
-          {products.map((p) => (
-            <option key={p.name} value={p.name}>
-              {p.name} — {p.capacity_kwh} kWh ·{" "}
-              {p.price_dkk_installed.toLocaleString("da-DK")} kr. installeret
-            </option>
-          ))}
-        </select>
-      </div>
+        <div className="bc-field">
+          <label className="bc-label" htmlFor="bc-household">
+            Husstandstype
+          </label>
+          <select
+            id="bc-household"
+            className="bc-input"
+            value={presetIndex}
+            onChange={(e) => {
+              setPresetIndex(parseInt(e.target.value, 10));
+              setCustomKwh("");
+            }}
+          >
+            {HOUSEHOLD_PRESETS.map((p, i) => (
+              <option key={p.label} value={i}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="bc-field">
+          {showCustomKwh ? (
+            <>
+              <label className="bc-label" htmlFor="bc-kwh">
+                Årsforbrug (kWh) — valgfrit, overstyrer husstandstypen
+              </label>
+              <input
+                id="bc-kwh"
+                className="bc-input"
+                inputMode="numeric"
+                placeholder={String(preset.kwh)}
+                value={customKwh}
+                onChange={(e) => setCustomKwh(e.target.value.replace(/\D/g, ""))}
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              className="bc-disclosure"
+              onClick={() => setShowCustomKwh(true)}
+            >
+              Kender du dit præcise årsforbrug? Angiv det her →
+            </button>
+          )}
+        </div>
+      </fieldset>
+
+      <fieldset className="bc-fieldset">
+        <legend className="bc-legend">Solceller</legend>
+
+        <div className="bc-field">
+          <label className="bc-check">
+            <input
+              type="checkbox"
+              checked={hasPv}
+              onChange={(e) => setHasPv(e.target.checked)}
+            />{" "}
+            Jeg har (eller får) solceller
+          </label>
+        </div>
+
+        {hasPv ? (
+          <div className="bc-row">
+            <div className="bc-field">
+              <label className="bc-label" htmlFor="bc-kwp">
+                Solcelleanlæg (kWp)
+              </label>
+              <input
+                id="bc-kwp"
+                className="bc-input"
+                inputMode="decimal"
+                value={pvKwp}
+                onChange={(e) =>
+                  setPvKwp(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))
+                }
+              />
+            </div>
+            <div className="bc-field">
+              <label className="bc-label" htmlFor="bc-orient">
+                Orientering
+              </label>
+              <select
+                id="bc-orient"
+                className="bc-input"
+                value={pvOrientation}
+                onChange={(e) => setPvOrientation(e.target.value as "S" | "SE_SW" | "E_W")}
+              >
+                <option value="S">Syd</option>
+                <option value="SE_SW">Sydøst/Sydvest</option>
+                <option value="E_W">Øst/Vest</option>
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </fieldset>
+
+      <fieldset className="bc-fieldset">
+        <legend className="bc-legend">Batteri</legend>
+
+        <div className="bc-field">
+          <label className="bc-label" htmlFor="bc-battery">
+            Batteri
+            <InfoTooltip id="bc-tip-battery" label="Forklaring: anbefal størrelse">
+              Beregneren afprøver alle batteristørrelser i kataloget og vælger den,
+              der giver den højeste nutidsværdi (NPV) over batteriets levetid.
+            </InfoTooltip>
+          </label>
+          <select
+            id="bc-battery"
+            className="bc-input"
+            value={batteryName}
+            onChange={(e) => setBatteryName(e.target.value)}
+          >
+            <option value="auto">Anbefal størrelse (bedste økonomi)</option>
+            {products.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name} — {p.capacity_kwh} kWh ·{" "}
+                {p.price_dkk_installed.toLocaleString("da-DK")} kr. installeret
+              </option>
+            ))}
+          </select>
+        </div>
+      </fieldset>
 
       <button className="bc-button" type="submit" disabled={!valid}>
         Beregn besparelse
