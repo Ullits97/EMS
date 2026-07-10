@@ -59,6 +59,7 @@ class LifetimeRaw:
     years: dict[str, list[YearRun]]  # strategy name -> YearRun per year (index 0 = year 1)
     reference_year: int
     start_year: int
+    no_pv_years: list[float]  # grid cost with neither PV nor battery, per year (index 0 = year 1)
 
 
 def _day_start_indices(index: pd.DatetimeIndex) -> np.ndarray:
@@ -283,6 +284,8 @@ def simulate_lifetime(request: SimulationRequest) -> LifetimeRaw:
 
     deg_rate = request.battery.calendar_degradation_pct_yr / 100.0
     years: dict[str, list[YearRun]] = {s.name: [] for s in strategies}
+    no_pv_years: list[float] = []
+    zeros = np.zeros(n)
 
     for year_offset in range(request.battery.lifetime_years):
         sim_year = start_year + year_offset
@@ -296,6 +299,7 @@ def simulate_lifetime(request: SimulationRequest) -> LifetimeRaw:
                 spot_component=year1_prices.spot_component,
                 tariff_tax_component=year1_prices.tariff_tax_component + delta,
             )
+        no_pv_years.append(baseline_cost(zeros, load, prices))
         capacity_factor = max(1.0 - deg_rate * year_offset, 0.05)
         for strategy in strategies:
             battery = Battery(request.battery, capacity_factor, STEP_HOURS)
@@ -303,4 +307,6 @@ def simulate_lifetime(request: SimulationRequest) -> LifetimeRaw:
                 run_year(pv, load, prices, plans[strategy.name], battery, tolerance)
             )
 
-    return LifetimeRaw(years=years, reference_year=reference_year, start_year=start_year)
+    return LifetimeRaw(
+        years=years, reference_year=reference_year, start_year=start_year, no_pv_years=no_pv_years
+    )

@@ -10,7 +10,9 @@ export interface InputValues {
   hasPv: boolean;
   pvKwp: number;
   pvOrientation: "S" | "SE_SW" | "E_W";
+  pvPriceDkk?: number;
   batteryName: string; // product name or "auto"
+  batteryPriceDkk?: number; // override; only meaningful when batteryName !== "auto"
 }
 
 interface Props {
@@ -34,7 +36,9 @@ export function InputStep({ products, onSubmit }: Props) {
   const [hasPv, setHasPv] = useState(false);
   const [pvKwp, setPvKwp] = useState("6");
   const [pvOrientation, setPvOrientation] = useState<"S" | "SE_SW" | "E_W">("S");
+  const [pvPrice, setPvPrice] = useState("");
   const [batteryName, setBatteryName] = useState("auto");
+  const [batteryPrice, setBatteryPrice] = useState("");
 
   const postcode = parseInt(postcodeText, 10);
   const site = Number.isFinite(postcode) ? mapPostcode(postcode) : null;
@@ -48,11 +52,21 @@ export function InputStep({ products, onSubmit }: Props) {
     site !== null &&
     annualKwh > 0 &&
     annualKwh < 100000 &&
-    (!hasPv || (kwp > 0 && kwp <= 50));
+    (!hasPv || (kwp > 0 && kwp <= 50)) &&
+    (batteryName === "auto" || !batteryPrice || parseFloat(batteryPrice) > 0);
+
+  function selectBattery(name: string): void {
+    setBatteryName(name);
+    const product = products.find((p) => p.name === name);
+    setBatteryPrice(product ? String(product.price_dkk_installed) : "");
+  }
 
   function submit(e: React.FormEvent): void {
     e.preventDefault();
     if (!valid) return;
+    const pvPriceValue = pvPrice ? parseFloat(pvPrice) : undefined;
+    const batteryPriceValue =
+      batteryName !== "auto" && batteryPrice ? parseFloat(batteryPrice) : undefined;
     onSubmit({
       postcode,
       annualKwh,
@@ -60,7 +74,9 @@ export function InputStep({ products, onSubmit }: Props) {
       hasPv,
       pvKwp: kwp,
       pvOrientation,
+      pvPriceDkk: hasPv ? pvPriceValue : undefined,
       batteryName,
+      batteryPriceDkk: batteryPriceValue,
     });
   }
 
@@ -185,6 +201,26 @@ export function InputStep({ products, onSubmit }: Props) {
             </div>
           </div>
         ) : null}
+
+        {hasPv ? (
+          <div className="bc-field">
+            <label className="bc-label" htmlFor="bc-pv-price">
+              Installeret pris for solcelleanlæg (kr.) — valgfrit
+              <InfoTooltip id="bc-tip-pv-price" label="Forklaring: solcellepris">
+                Angiv prisen for at se om solceller alene betaler sig, uafhængigt af
+                batteriet.
+              </InfoTooltip>
+            </label>
+            <input
+              id="bc-pv-price"
+              className="bc-input"
+              inputMode="numeric"
+              placeholder="fx 54000"
+              value={pvPrice}
+              onChange={(e) => setPvPrice(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+        ) : null}
       </fieldset>
 
       <fieldset className="bc-fieldset">
@@ -202,7 +238,7 @@ export function InputStep({ products, onSubmit }: Props) {
             id="bc-battery"
             className="bc-input"
             value={batteryName}
-            onChange={(e) => setBatteryName(e.target.value)}
+            onChange={(e) => selectBattery(e.target.value)}
           >
             <option value="auto">Anbefal størrelse (bedste økonomi)</option>
             {products.map((p) => (
@@ -213,6 +249,25 @@ export function InputStep({ products, onSubmit }: Props) {
             ))}
           </select>
         </div>
+
+        {batteryName !== "auto" ? (
+          <div className="bc-field">
+            <label className="bc-label" htmlFor="bc-battery-price">
+              Installeret pris (kr.)
+              <InfoTooltip id="bc-tip-battery-price" label="Forklaring: batteripris">
+                Forudfyldt med katalogprisen — ret den, hvis du vil tilpasse tilbuddet til
+                kunden.
+              </InfoTooltip>
+            </label>
+            <input
+              id="bc-battery-price"
+              className="bc-input"
+              inputMode="numeric"
+              value={batteryPrice}
+              onChange={(e) => setBatteryPrice(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+        ) : null}
       </fieldset>
 
       <button className="bc-button" type="submit" disabled={!valid}>

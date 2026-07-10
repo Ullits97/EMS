@@ -13,25 +13,21 @@ interface Props {
 // SPEC §10.2 requires for results.
 export function WorkedExample({ strategy }: Props) {
   const baseline = strategy.year1.baseline_cost_dkk;
-  const withBatteryLow = Math.min(
-    strategy.year1.cost_with_battery_dkk,
-    strategy.year1_upper.cost_with_battery_dkk,
-  );
-  const withBatteryHigh = Math.max(
-    strategy.year1.cost_with_battery_dkk,
-    strategy.year1_upper.cost_with_battery_dkk,
-  );
-  const savingsLow = baseline - withBatteryHigh;
-  const savingsHigh = baseline - withBatteryLow;
+  const withBattery = strategy.year1.cost_with_battery_dkk;
+  const withBatteryUpper = strategy.year1_upper.cost_with_battery_dkk;
+  const costLow = Math.min(withBattery, withBatteryUpper);
+  const costHigh = Math.max(withBattery, withBatteryUpper);
+  // When the interval collapses, show the headline (year1) cost/savings pair
+  // together — never a cost from one variant paired with savings derived
+  // from the other, which would make baseline - shown_cost != shown_savings.
+  const collapsed = Math.abs(costHigh - costLow) < 50;
 
-  const withBatteryText =
-    Math.abs(withBatteryHigh - withBatteryLow) < 50
-      ? dkk(withBatteryLow)
-      : `${dkk(withBatteryLow)} – ${dkk(withBatteryHigh)}`;
-  const savingsText =
-    Math.abs(savingsHigh - savingsLow) < 50
-      ? dkk(savingsLow)
-      : `${dkk(savingsLow)} – ${dkk(savingsHigh)}`;
+  const withBatteryText = collapsed
+    ? dkk(withBattery)
+    : `${dkk(costLow)} – ${dkk(costHigh)}`;
+  const savingsText = collapsed
+    ? dkk(baseline - withBattery)
+    : `${dkk(baseline - costHigh)} – ${dkk(baseline - costLow)}`;
 
   return (
     <div className="bc-worked-example">

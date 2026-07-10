@@ -6,6 +6,10 @@ branding:
   logo_url: "https://placehold.co/160x48?text=Demo+Energi"
   primary_color: "#1d7a5f"
   secondary_color: "#123f31"
+  contact_phone: "+45 70 12 34 56"
+  contact_email: "kontakt@demoenergi.dk"
+  cta_text: "Få et gratis tilbud"
+  cta_url: "mailto:kontakt@demoenergi.dk?subject=Tilbud%20på%20batteri%20og%20solceller"
 
 products:
   - name: "Kompakt 5 kWh"

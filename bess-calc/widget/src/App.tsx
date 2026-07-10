@@ -28,7 +28,12 @@ function buildRequest(values: InputValues, battery: BatterySpec): SimulationRequ
   return {
     battery,
     pv: values.hasPv
-      ? { kwp: values.pvKwp, orientation: values.pvOrientation, tilt_deg: 35 }
+      ? {
+          kwp: values.pvKwp,
+          orientation: values.pvOrientation,
+          tilt_deg: 35,
+          price_dkk_installed: values.pvPriceDkk ?? null,
+        }
       : null,
     consumption: { annual_kwh: values.annualKwh, profile: values.profile },
     site: { price_area: site.price_area, dso: site.dso },
@@ -76,8 +81,12 @@ export function App({ tenantId, apiBase }: Props) {
           alternatives: results,
         });
       } else {
-        const battery = catalog.products.find((p) => p.name === values.batteryName);
-        if (!battery) throw new Error("Ukendt batterimodel");
+        const catalogBattery = catalog.products.find((p) => p.name === values.batteryName);
+        if (!catalogBattery) throw new Error("Ukendt batterimodel");
+        const battery =
+          values.batteryPriceDkk != null
+            ? { ...catalogBattery, price_dkk_installed: values.batteryPriceDkk }
+            : catalogBattery;
         const result = await client.simulate(buildRequest(values, battery));
         setPhase({ step: "result", result, battery, alternatives: null });
       }
@@ -125,11 +134,12 @@ export function App({ tenantId, apiBase }: Props) {
         </div>
       ) : null}
 
-      {phase.step === "result" ? (
+      {phase.step === "result" && catalog ? (
         <ResultStep
           result={phase.result}
           battery={phase.battery}
           alternatives={phase.alternatives}
+          branding={catalog.branding}
           onBack={() => setPhase({ step: "input" })}
         />
       ) : null}

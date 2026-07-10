@@ -213,6 +213,14 @@
   cursor: not-allowed;
 }
 
+.bc-result-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
 .bc-back {
   background: none;
   border: none;
@@ -220,7 +228,27 @@
   font-size: 14px;
   cursor: pointer;
   padding: 0;
-  margin-bottom: 12px;
+}
+
+.bc-print-button {
+  background: none;
+  border: 1px solid var(--bc-border);
+  color: var(--bc-text-2);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+.bc-contact-cta {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.bc-cta-button {
+  display: inline-block;
+  text-decoration: none;
+  margin-top: 8px;
 }
 
 .bc-loading {
@@ -459,4 +487,21 @@
   background: #f7f6f2;
   border-left: 3px solid var(--bc-primary);
   border-radius: 4px;
+}
+
+@media print {
+  .bc-back,
+  .bc-print-button,
+  .bc-info-btn {
+    display: none !important;
+  }
+
+  /* Force <details> content to print regardless of open/closed state. */
+  .bc-details > *:not(summary) {
+    display: block !important;
+  }
+
+  .bc-details summary {
+    display: none;
+  }
 }

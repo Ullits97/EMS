@@ -78,6 +78,52 @@ def test_npv_hand_computed():
     assert npv(1000, [500, 500], 0.10) == pytest.approx(-132.2314, abs=0.001)
 
 
+def test_cost_without_pv_always_present(request_pv, request_no_pv):
+    for req in (request_pv, request_no_pv):
+        result = run_simulation(req)
+        assert result.cost_without_pv_dkk_year1 > 0
+
+
+def test_pv_economics_none_without_price_or_pv(request_pv, request_no_pv):
+    assert run_simulation(request_no_pv).pv_economics is None
+    assert run_simulation(request_no_pv).package_economics is None
+    # request_pv has PV but no price by default.
+    assert run_simulation(request_pv).pv_economics is None
+    assert run_simulation(request_pv).package_economics is None
+
+
+def test_pv_economics_arithmetic(request_pv):
+    priced = request_pv.model_copy(
+        update={"pv": request_pv.pv.model_copy(update={"price_dkk_installed": 40000.0})}
+    )
+    result = run_simulation(priced)
+    pv_econ = result.pv_economics
+    assert pv_econ is not None
+    assert pv_econ.price_dkk_installed == 40000.0
+    # Savings year 1 = cost without PV minus cost with PV only (both single points).
+    assert pv_econ.savings_dkk_year1 == pytest.approx(
+        pv_econ.cost_without_pv_dkk_year1 - pv_econ.cost_with_pv_only_dkk_year1, abs=1e-6
+    )
+    assert pv_econ.cost_without_pv_dkk_year1 == pytest.approx(result.cost_without_pv_dkk_year1)
+    assert pv_econ.payback_years == payback_years(
+        40000.0, pv_econ.savings_dkk_avg, priced.battery.lifetime_years
+    )
+
+
+def test_package_economics_combines_prices_and_is_an_interval(request_pv):
+    priced = request_pv.model_copy(
+        update={"pv": request_pv.pv.model_copy(update={"price_dkk_installed": 40000.0})}
+    )
+    result = run_simulation(priced)
+    pkg = result.package_economics
+    assert pkg is not None
+    assert pkg.price_dkk_installed == pytest.approx(
+        priced.battery.price_dkk_installed + 40000.0
+    )
+    assert pkg.annual_savings_dkk_low <= pkg.annual_savings_dkk_high + 1e-9
+    assert pkg.npv_dkk <= pkg.npv_dkk_high + 1e-9
+
+
 def test_result_contract(request_pv):
     result = run_simulation(request_pv)
     # SPEC §10 hard requirements.

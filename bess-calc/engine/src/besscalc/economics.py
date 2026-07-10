@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from .data import load_reference_meta, load_tariffs, load_taxes
 from .models import (
+    PackageEconomics,
+    PVEconomics,
     SavingsBreakdown,
     SimulationRequest,
     SimulationResult,
@@ -117,6 +119,61 @@ def _strategy_economics(
     )
 
 
+def _pv_economics(request: SimulationRequest, raw: LifetimeRaw) -> PVEconomics | None:
+    """Standalone PV-only business case vs. no system at all (no battery)."""
+    if request.pv is None or request.pv.price_dkk_installed is None:
+        return None
+    horizon = request.battery.lifetime_years
+    rate = request.scenario.discount_rate
+    price = request.pv.price_dkk_installed
+
+    any_strategy_years = next(iter(raw.years.values()))
+    cost_with_pv = [y.baseline_cost_dkk for y in any_strategy_years]
+    cost_without_pv = raw.no_pv_years
+    annual_savings = [wo - w for wo, w in zip(cost_without_pv, cost_with_pv)]
+    avg_savings = sum(annual_savings) / horizon
+
+    return PVEconomics(
+        price_dkk_installed=price,
+        cost_without_pv_dkk_year1=cost_without_pv[0],
+        cost_with_pv_only_dkk_year1=cost_with_pv[0],
+        savings_dkk_year1=annual_savings[0],
+        savings_dkk_avg=avg_savings,
+        payback_years=payback_years(price, avg_savings, horizon),
+        npv_dkk=npv(price, annual_savings, rate),
+    )
+
+
+def _package_economics(
+    request: SimulationRequest,
+    raw: LifetimeRaw,
+    b_headline: list[YearRun],
+    b_years: list[YearRun],
+) -> PackageEconomics | None:
+    """Combined PV+battery investment vs. no system at all. Interval, because
+    it includes the battery's dispatch strategy (price_optimized)."""
+    if request.pv is None or request.pv.price_dkk_installed is None:
+        return None
+    horizon = request.battery.lifetime_years
+    rate = request.scenario.discount_rate
+    total_price = request.battery.price_dkk_installed + request.pv.price_dkk_installed
+
+    savings_headline = [no - b.cost_dkk for no, b in zip(raw.no_pv_years, b_headline)]
+    savings_upper = [no - b.cost_dkk for no, b in zip(raw.no_pv_years, b_years)]
+    avg_low = sum(savings_headline) / horizon
+    avg_high = sum(savings_upper) / horizon
+
+    return PackageEconomics(
+        price_dkk_installed=total_price,
+        annual_savings_dkk_low=avg_low,
+        annual_savings_dkk_high=avg_high,
+        payback_years_low=payback_years(total_price, avg_high, horizon),
+        payback_years_high=payback_years(total_price, avg_low, horizon),
+        npv_dkk=npv(total_price, savings_headline, rate),
+        npv_dkk_high=npv(total_price, savings_upper, rate),
+    )
+
+
 def build_assumptions(request: SimulationRequest, raw: LifetimeRaw) -> list[str]:
     """Machine-generated assumption list (Danish), SPEC §10 item 3."""
     meta = load_reference_meta()
@@ -159,6 +216,12 @@ def build_assumptions(request: SimulationRequest, raw: LifetimeRaw) -> list[str]
         f"Nutidsværdi (NPV) beregnet med {request.scenario.discount_rate * 100:.1f}% "
         "diskonteringsrente.",
     ]
+    if request.pv and request.pv.price_dkk_installed:
+        assumptions.append(
+            "Solceller alene og den samlede pakke (solceller + batteri): tilbagebetalingstid "
+            f"og nutidsværdi beregnes over samme horisont ({request.battery.lifetime_years} år) "
+            "og diskonteringsrente som batteriet, uden separat levetid for solcelleanlægget."
+        )
     return assumptions
 
 
@@ -193,4 +256,7 @@ def run_simulation(request: SimulationRequest) -> SimulationResult:
         reference_year=raw.reference_year,
         assumptions=build_assumptions(request, raw),
         input_echo=request,
+        cost_without_pv_dkk_year1=raw.no_pv_years[0],
+        pv_economics=_pv_economics(request, raw),
+        package_economics=_package_economics(request, raw, b_headline, b_years),
     )

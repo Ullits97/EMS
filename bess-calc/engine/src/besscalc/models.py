@@ -51,6 +51,9 @@ class PVSpec(BaseModel):
     kwp: float = Field(gt=0, description="Installed DC capacity [kWp]")
     orientation: Orientation = Field(description="Maps to bundled PVGIS profiles")
     tilt_deg: int = Field(default=35, ge=0, le=90)
+    price_dkk_installed: float | None = Field(
+        default=None, gt=0, description="Installed price incl. VAT [DKK], optional"
+    )
 
 
 class ConsumptionSpec(BaseModel):
@@ -114,6 +117,39 @@ class StrategyEconomics(BaseModel):
     npv_dkk_high: float = Field(description="NPV upper bound (unscaled savings)")
 
 
+class PVEconomics(BaseModel):
+    """Standalone PV-only business case (no battery), SPEC-adjacent extension.
+
+    Single-point figures: unlike StrategyEconomics, there is no dispatch
+    strategy to blend (no battery involved), so there is no realism-factor
+    uncertainty band to express as an interval.
+    """
+
+    price_dkk_installed: float
+    cost_without_pv_dkk_year1: float = Field(
+        description="Grid cost with neither PV nor battery, year 1 [DKK]"
+    )
+    cost_with_pv_only_dkk_year1: float = Field(description="Grid cost with PV, no battery [DKK]")
+    savings_dkk_year1: float
+    savings_dkk_avg: float = Field(description="Lifetime-average annual savings [DKK]")
+    payback_years: float | None
+    npv_dkk: float
+
+
+class PackageEconomics(BaseModel):
+    """Combined PV+battery investment case (installer's single quote), vs.
+    no system at all. Interval, like StrategyEconomics, because it includes
+    the battery's dispatch strategy (price_optimized)."""
+
+    price_dkk_installed: float = Field(description="Combined PV + battery price [DKK]")
+    annual_savings_dkk_low: float
+    annual_savings_dkk_high: float
+    payback_years_low: float | None
+    payback_years_high: float | None
+    npv_dkk: float
+    npv_dkk_high: float
+
+
 class SimulationResult(BaseModel):
     strategies: dict[StrategyName, StrategyEconomics]
     reference_year: int
@@ -121,3 +157,12 @@ class SimulationResult(BaseModel):
     disclaimer: str = DISCLAIMER
     engine_version: str = ENGINE_VERSION
     input_echo: SimulationRequest = Field(description="Exact input, so results are reproducible")
+    cost_without_pv_dkk_year1: float = Field(
+        description="Grid cost with neither PV nor battery, year 1 [DKK]"
+    )
+    pv_economics: PVEconomics | None = Field(
+        default=None, description="Set only when PV is present with a price"
+    )
+    package_economics: PackageEconomics | None = Field(
+        default=None, description="Set only when PV is present with a price"
+    )

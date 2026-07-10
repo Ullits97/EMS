@@ -8,11 +8,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { BatterySpec, SimulationResult, StrategyEconomics } from "../types";
-import { dkk, years } from "../format";
+import type { BatterySpec, Branding, SimulationResult, StrategyEconomics } from "../types";
+import { dkk, dkkInterval, paybackYearsText } from "../format";
 import { assumptionSeverity, hasSyntheticWarning, unverifiedNotes } from "../assumptions";
 import { WorkedExample } from "./WorkedExample";
 import { BatteryComparisonTable } from "./BatteryComparisonTable";
+import { PVEconomicsCard } from "./PVEconomicsCard";
+import { SystemComparisonTable } from "./SystemComparisonTable";
+import { PackageEconomicsCard } from "./PackageEconomicsCard";
+import { ContactCta } from "./ContactCta";
 
 interface Alternative {
   product: BatterySpec;
@@ -23,6 +27,7 @@ interface Props {
   result: SimulationResult;
   battery: BatterySpec;
   alternatives: Alternative[] | null;
+  branding: Branding;
   onBack: () => void;
 }
 
@@ -48,22 +53,21 @@ function savingsInterval(s: StrategyEconomics): string {
 }
 
 function year1Interval(s: StrategyEconomics): string {
-  const low = Math.round(Math.min(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk));
-  const high = Math.round(Math.max(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk));
-  if (Math.abs(high - low) < 50) return dkk(low);
-  return `${dkk(low)} – ${dkk(high)}`;
+  return dkkInterval(
+    Math.min(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk),
+    Math.max(s.year1.savings_total_dkk, s.year1_upper.savings_total_dkk),
+  );
 }
 
 function paybackInterval(s: StrategyEconomics, lifetime: number): string {
-  const { payback_years_low: low, payback_years_high: high } = s;
-  if (low == null && high == null) return `over ${lifetime} år (batteriets levetid)`;
-  if (low != null && high != null) {
-    return Math.abs(high - low) < 0.3 ? `ca. ${years(low)} år` : `${years(low)}–${years(high)} år`;
-  }
-  return `${years((low ?? high) as number)} år eller mere`;
+  return paybackYearsText(
+    s.payback_years_low,
+    s.payback_years_high,
+    `over ${lifetime} år (batteriets levetid)`,
+  );
 }
 
-export function ResultStep({ result, battery, alternatives, onBack }: Props) {
+export function ResultStep({ result, battery, alternatives, branding, onBack }: Props) {
   const strategyB = result.strategies.price_optimized;
   const strategyA = result.strategies.self_consumption;
   const lifetime = battery.lifetime_years;
@@ -81,9 +85,14 @@ export function ResultStep({ result, battery, alternatives, onBack }: Props) {
 
   return (
     <div className="bc-result">
-      <button className="bc-back" onClick={onBack}>
-        ← Ret indtastning
-      </button>
+      <div className="bc-result-actions">
+        <button className="bc-back" onClick={onBack}>
+          ← Ret indtastning
+        </button>
+        <button className="bc-print-button" onClick={() => window.print()}>
+          Udskriv resultat
+        </button>
+      </div>
 
       {syntheticWarning ? (
         <div className="bc-callout bc-callout--critical">
@@ -135,6 +144,19 @@ export function ResultStep({ result, battery, alternatives, onBack }: Props) {
 
       <h3 className="bc-section-title">Sådan hænger tallene sammen (år 1)</h3>
       <WorkedExample strategy={strategyB} />
+
+      {echo.pv ? (
+        <>
+          <h3 className="bc-section-title">Giver solceller alene mening?</h3>
+          <PVEconomicsCard pvEconomics={result.pv_economics} lifetimeYears={lifetime} />
+
+          <h3 className="bc-section-title">Ingen anlæg vs. kun solceller vs. solceller + batteri</h3>
+          <SystemComparisonTable
+            costWithoutPv={result.cost_without_pv_dkk_year1}
+            strategyB={strategyB}
+          />
+        </>
+      ) : null}
 
       <h3 className="bc-section-title">Hvor kommer besparelsen fra? (år 1)</h3>
       <div className="bc-chart">
@@ -197,6 +219,16 @@ export function ResultStep({ result, battery, alternatives, onBack }: Props) {
         </>
       ) : null}
 
+      {result.package_economics ? (
+        <>
+          <h3 className="bc-section-title">Samlet pakke-økonomi (solceller + batteri)</h3>
+          <PackageEconomicsCard
+            packageEconomics={result.package_economics}
+            lifetimeYears={lifetime}
+          />
+        </>
+      ) : null}
+
       <h3 className="bc-section-title">Standard vs. prisoptimeret styring</h3>
       <div className="bc-table-wrap">
         <table className="bc-table">
@@ -250,7 +282,10 @@ export function ResultStep({ result, battery, alternatives, onBack }: Props) {
           <dt>Solceller</dt>
           <dd>
             {echo.pv
-              ? `${echo.pv.kwp} kWp, orientering ${echo.pv.orientation}`
+              ? `${echo.pv.kwp} kWp, orientering ${echo.pv.orientation}` +
+                (echo.pv.price_dkk_installed
+                  ? ` · ${echo.pv.price_dkk_installed.toLocaleString("da-DK")} kr. installeret`
+                  : "")
               : "Ingen solceller"}
           </dd>
           <dt>Batteri</dt>
@@ -287,6 +322,8 @@ export function ResultStep({ result, battery, alternatives, onBack }: Props) {
       </details>
 
       <p className="bc-disclaimer">{result.disclaimer}</p>
+
+      <ContactCta branding={branding} />
     </div>
   );
 }

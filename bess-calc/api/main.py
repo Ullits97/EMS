@@ -49,6 +49,10 @@ class Branding(BaseModel):
     logo_url: str = ""
     primary_color: str = "#1d7a5f"
     secondary_color: str = "#123f31"
+    contact_phone: str | None = None
+    contact_email: str | None = None
+    cta_text: str | None = None
+    cta_url: str | None = None
 
 
 class TenantCatalog(BaseModel):
@@ -100,11 +104,13 @@ def simulate(body: ApiSimulationRequest) -> SimulationResult:
 
 if DEMO_MODE:
 
+    NO_CACHE_HEADERS = {"Cache-Control": "no-store"}
+
     @app.get("/demo", include_in_schema=False)
     def demo_page() -> FileResponse:
         if not DEMO_HTML.exists():
             raise HTTPException(status_code=404, detail="demo.html not built")
-        return FileResponse(DEMO_HTML)
+        return FileResponse(DEMO_HTML, headers=NO_CACHE_HEADERS)
 
     @app.get("/widget.js", include_in_schema=False)
     def widget_bundle() -> FileResponse:
@@ -113,4 +119,4 @@ if DEMO_MODE:
             raise HTTPException(
                 status_code=404, detail="widget not built — run `npm run build` in widget/"
             )
-        return FileResponse(bundle, media_type="application/javascript")
+        return FileResponse(bundle, media_type="application/javascript", headers=NO_CACHE_HEADERS)
