@@ -8,18 +8,32 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { BatterySpec, Branding, SimulationResult, StrategyEconomics } from "../types";
+import type {
+  BatterySpec,
+  Branding,
+  LeadContact,
+  PVProduct,
+  SimulationResult,
+  StrategyEconomics,
+} from "../types";
 import { dkk, dkkInterval, paybackYearsText } from "../format";
 import { assumptionSeverity, hasSyntheticWarning, unverifiedNotes } from "../assumptions";
 import { WorkedExample } from "./WorkedExample";
 import { BatteryComparisonTable } from "./BatteryComparisonTable";
+import { PVComparisonTable } from "./PVComparisonTable";
 import { PVEconomicsCard } from "./PVEconomicsCard";
 import { SystemComparisonTable } from "./SystemComparisonTable";
 import { PackageEconomicsCard } from "./PackageEconomicsCard";
 import { ContactCta } from "./ContactCta";
+import { LeadCaptureForm } from "./LeadCaptureForm";
 
 interface Alternative {
   product: BatterySpec;
+  result: SimulationResult;
+}
+
+interface PvAlternative {
+  product: PVProduct;
   result: SimulationResult;
 }
 
@@ -27,7 +41,10 @@ interface Props {
   result: SimulationResult;
   battery: BatterySpec;
   alternatives: Alternative[] | null;
+  pvAlternatives: PvAlternative[] | null;
   branding: Branding;
+  leadsEnabled: boolean;
+  onSubmitLead: (contact: LeadContact) => Promise<void>;
   onBack: () => void;
 }
 
@@ -67,7 +84,16 @@ function paybackInterval(s: StrategyEconomics, lifetime: number): string {
   );
 }
 
-export function ResultStep({ result, battery, alternatives, branding, onBack }: Props) {
+export function ResultStep({
+  result,
+  battery,
+  alternatives,
+  pvAlternatives,
+  branding,
+  leadsEnabled,
+  onSubmitLead,
+  onBack,
+}: Props) {
   const strategyB = result.strategies.price_optimized;
   const strategyA = result.strategies.self_consumption;
   const lifetime = battery.lifetime_years;
@@ -219,6 +245,13 @@ export function ResultStep({ result, battery, alternatives, branding, onBack }: 
         </>
       ) : null}
 
+      {pvAlternatives && pvAlternatives.length > 1 && echo.pv ? (
+        <>
+          <h3 className="bc-section-title">Sammenligning af solcellestørrelser (nutidsværdi)</h3>
+          <PVComparisonTable alternatives={pvAlternatives} selectedKwp={echo.pv.kwp} />
+        </>
+      ) : null}
+
       {result.package_economics ? (
         <>
           <h3 className="bc-section-title">Samlet pakke-økonomi (solceller + batteri)</h3>
@@ -322,6 +355,10 @@ export function ResultStep({ result, battery, alternatives, branding, onBack }: 
       </details>
 
       <p className="bc-disclaimer">{result.disclaimer}</p>
+
+      {leadsEnabled ? (
+        <LeadCaptureForm installerName={branding.name} onSubmit={onSubmitLead} />
+      ) : null}
 
       <ContactCta branding={branding} />
     </div>

@@ -94,8 +94,22 @@ export interface Branding {
   cta_url?: string | null;
 }
 
+export interface PVProduct {
+  name: string;
+  kwp: number;
+  price_dkk_installed: number;
+}
+
 export interface TenantCatalog {
   tenant_id: string;
   branding: Branding;
   products: BatterySpec[];
+  pv_products: PVProduct[];
+  leads_enabled: boolean;
+}
+
+export interface LeadContact {
+  name?: string;
+  phone?: string;
+  email?: string;
 }

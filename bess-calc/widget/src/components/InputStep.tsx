@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { mapPostcode } from "../postcode";
-import type { BatterySpec } from "../types";
+import type { BatterySpec, PVProduct } from "../types";
 import { InfoTooltip } from "./InfoTooltip";
 
 export interface InputValues {
@@ -11,12 +11,14 @@ export interface InputValues {
   pvKwp: number;
   pvOrientation: "S" | "SE_SW" | "E_W";
   pvPriceDkk?: number;
+  pvName?: string; // product name or "auto"; undefined in free-form fallback mode
   batteryName: string; // product name or "auto"
   batteryPriceDkk?: number; // override; only meaningful when batteryName !== "auto"
 }
 
 interface Props {
   products: BatterySpec[];
+  pvProducts: PVProduct[];
   onSubmit: (values: InputValues) => void;
 }
 
@@ -28,7 +30,9 @@ const HOUSEHOLD_PRESETS = [
   { label: "Hus med elbil og varmepumpe (12.500 kWh/år)", kwh: 12500, profile: "base_ev_hp" },
 ];
 
-export function InputStep({ products, onSubmit }: Props) {
+export function InputStep({ products, pvProducts, onSubmit }: Props) {
+  const catalogPv = pvProducts.length > 0;
+
   const [postcodeText, setPostcodeText] = useState("");
   const [presetIndex, setPresetIndex] = useState(1);
   const [customKwh, setCustomKwh] = useState<string>("");
@@ -37,6 +41,7 @@ export function InputStep({ products, onSubmit }: Props) {
   const [pvKwp, setPvKwp] = useState("6");
   const [pvOrientation, setPvOrientation] = useState<"S" | "SE_SW" | "E_W">("S");
   const [pvPrice, setPvPrice] = useState("");
+  const [pvName, setPvName] = useState(catalogPv ? "auto" : "");
   const [batteryName, setBatteryName] = useState("auto");
   const [batteryPrice, setBatteryPrice] = useState("");
 
@@ -52,13 +57,20 @@ export function InputStep({ products, onSubmit }: Props) {
     site !== null &&
     annualKwh > 0 &&
     annualKwh < 100000 &&
-    (!hasPv || (kwp > 0 && kwp <= 50)) &&
+    (!hasPv || !catalogPv || pvName === "auto" || !pvPrice || parseFloat(pvPrice) > 0) &&
+    (!hasPv || catalogPv || (kwp > 0 && kwp <= 50)) &&
     (batteryName === "auto" || !batteryPrice || parseFloat(batteryPrice) > 0);
 
   function selectBattery(name: string): void {
     setBatteryName(name);
     const product = products.find((p) => p.name === name);
     setBatteryPrice(product ? String(product.price_dkk_installed) : "");
+  }
+
+  function selectPv(name: string): void {
+    setPvName(name);
+    const product = pvProducts.find((p) => p.name === name);
+    setPvPrice(product ? String(product.price_dkk_installed) : "");
   }
 
   function submit(e: React.FormEvent): void {
@@ -75,6 +87,7 @@ export function InputStep({ products, onSubmit }: Props) {
       pvKwp: kwp,
       pvOrientation,
       pvPriceDkk: hasPv ? pvPriceValue : undefined,
+      pvName: hasPv && catalogPv ? pvName : undefined,
       batteryName,
       batteryPriceDkk: batteryPriceValue,
     });
@@ -168,58 +181,123 @@ export function InputStep({ products, onSubmit }: Props) {
           </label>
         </div>
 
-        {hasPv ? (
-          <div className="bc-row">
-            <div className="bc-field">
-              <label className="bc-label" htmlFor="bc-kwp">
-                Solcelleanlæg (kWp)
-              </label>
-              <input
-                id="bc-kwp"
-                className="bc-input"
-                inputMode="decimal"
-                value={pvKwp}
-                onChange={(e) =>
-                  setPvKwp(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))
-                }
-              />
+        {hasPv && catalogPv ? (
+          <>
+            <div className="bc-row">
+              <div className="bc-field">
+                <label className="bc-label" htmlFor="bc-pv">
+                  Solcelleanlæg
+                  <InfoTooltip id="bc-tip-pv" label="Forklaring: anbefal størrelse">
+                    Beregneren afprøver alle solcellestørrelser i kataloget og vælger den,
+                    der giver den højeste nutidsværdi for hele pakken (solceller og
+                    batteri tilsammen).
+                  </InfoTooltip>
+                </label>
+                <select
+                  id="bc-pv"
+                  className="bc-input"
+                  value={pvName}
+                  onChange={(e) => selectPv(e.target.value)}
+                >
+                  <option value="auto">Anbefal størrelse (bedste økonomi)</option>
+                  {pvProducts.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name} — {p.kwp} kWp ·{" "}
+                      {p.price_dkk_installed.toLocaleString("da-DK")} kr. installeret
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="bc-field">
+                <label className="bc-label" htmlFor="bc-orient">
+                  Orientering
+                </label>
+                <select
+                  id="bc-orient"
+                  className="bc-input"
+                  value={pvOrientation}
+                  onChange={(e) => setPvOrientation(e.target.value as "S" | "SE_SW" | "E_W")}
+                >
+                  <option value="S">Syd</option>
+                  <option value="SE_SW">Sydøst/Sydvest</option>
+                  <option value="E_W">Øst/Vest</option>
+                </select>
+              </div>
             </div>
-            <div className="bc-field">
-              <label className="bc-label" htmlFor="bc-orient">
-                Orientering
-              </label>
-              <select
-                id="bc-orient"
-                className="bc-input"
-                value={pvOrientation}
-                onChange={(e) => setPvOrientation(e.target.value as "S" | "SE_SW" | "E_W")}
-              >
-                <option value="S">Syd</option>
-                <option value="SE_SW">Sydøst/Sydvest</option>
-                <option value="E_W">Øst/Vest</option>
-              </select>
-            </div>
-          </div>
+
+            {pvName !== "auto" ? (
+              <div className="bc-field">
+                <label className="bc-label" htmlFor="bc-pv-price">
+                  Installeret pris (kr.)
+                  <InfoTooltip id="bc-tip-pv-price" label="Forklaring: solcellepris">
+                    Forudfyldt med katalogprisen — ret den, hvis du vil tilpasse tilbuddet
+                    til kunden.
+                  </InfoTooltip>
+                </label>
+                <input
+                  id="bc-pv-price"
+                  className="bc-input"
+                  inputMode="numeric"
+                  value={pvPrice}
+                  onChange={(e) => setPvPrice(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+            ) : null}
+          </>
         ) : null}
 
-        {hasPv ? (
-          <div className="bc-field">
-            <label className="bc-label" htmlFor="bc-pv-price">
-              Installeret pris for solcelleanlæg (kr.) — valgfrit
-              <InfoTooltip id="bc-tip-pv-price" label="Forklaring: solcellepris">
-                Angiv prisen for at se om solceller alene betaler sig, uafhængigt af
-                batteriet.
-              </InfoTooltip>
-            </label>
-            <input
-              id="bc-pv-price"
-              className="bc-input"
-              inputMode="numeric"
-              placeholder="fx 54000"
-              value={pvPrice}
-              onChange={(e) => setPvPrice(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
+        {hasPv && !catalogPv ? (
+          <>
+            <div className="bc-row">
+              <div className="bc-field">
+                <label className="bc-label" htmlFor="bc-kwp">
+                  Solcelleanlæg (kWp)
+                </label>
+                <input
+                  id="bc-kwp"
+                  className="bc-input"
+                  inputMode="decimal"
+                  value={pvKwp}
+                  onChange={(e) =>
+                    setPvKwp(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))
+                  }
+                />
+              </div>
+              <div className="bc-field">
+                <label className="bc-label" htmlFor="bc-orient">
+                  Orientering
+                </label>
+                <select
+                  id="bc-orient"
+                  className="bc-input"
+                  value={pvOrientation}
+                  onChange={(e) => setPvOrientation(e.target.value as "S" | "SE_SW" | "E_W")}
+                >
+                  <option value="S">Syd</option>
+                  <option value="SE_SW">Sydøst/Sydvest</option>
+                  <option value="E_W">Øst/Vest</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bc-field">
+              <label className="bc-label" htmlFor="bc-pv-price">
+                Installeret pris for solcelleanlæg (kr.) — valgfrit
+                <InfoTooltip id="bc-tip-pv-price-freeform" label="Forklaring: solcellepris">
+                  Angiv prisen for at se om solceller alene betaler sig, uafhængigt af
+                  batteriet.
+                </InfoTooltip>
+              </label>
+              <input
+                id="bc-pv-price"
+                className="bc-input"
+                inputMode="numeric"
+                placeholder="fx 54000"
+                value={pvPrice}
+                onChange={(e) => setPvPrice(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+          </>
         ) : null}
       </fieldset>
 
@@ -230,8 +308,9 @@ export function InputStep({ products, onSubmit }: Props) {
           <label className="bc-label" htmlFor="bc-battery">
             Batteri
             <InfoTooltip id="bc-tip-battery" label="Forklaring: anbefal størrelse">
-              Beregneren afprøver alle batteristørrelser i kataloget og vælger den,
-              der giver den højeste nutidsværdi (NPV) over batteriets levetid.
+              Beregneren afprøver alle batteristørrelser i kataloget og vælger den, der
+              giver den højeste nutidsværdi (NPV) over batteriets levetid. Står solceller
+              også på "anbefal størrelse", afprøves alle kombinationer samlet.
             </InfoTooltip>
           </label>
           <select

@@ -48,10 +48,43 @@ def test_catalog_contract():
     for product in body["products"]:
         assert product["capacity_kwh"] > 0
         assert product["price_dkk_installed"] > 0
+    assert len(body["pv_products"]) >= 2
+    for pv_product in body["pv_products"]:
+        assert pv_product["kwp"] > 0
+        assert pv_product["price_dkk_installed"] > 0
 
 
 def test_catalog_unknown_tenant_404():
     assert client.get("/api/v1/tenants/nope/catalog").status_code == 404
+
+
+def test_catalog_pv_products_defaults_to_empty(tmp_path, monkeypatch):
+    import api.main as main
+
+    tenant_dir = tmp_path / "tenants"
+    tenant_dir.mkdir()
+    (tenant_dir / "no_pv_catalog.yaml").write_text(
+        """
+branding:
+  name: "No PV Catalog ApS"
+products:
+  - name: "Test 5 kWh"
+    capacity_kwh: 5
+    power_kw: 3
+    roundtrip_efficiency: 0.9
+    depth_of_discharge: 0.9
+    price_dkk_installed: 30000
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(main, "TENANTS_DIR", tenant_dir)
+    main._load_tenant_raw.cache_clear()
+
+    resp = client.get("/api/v1/tenants/no_pv_catalog/catalog")
+    assert resp.status_code == 200
+    assert resp.json()["pv_products"] == []
+
+    main._load_tenant_raw.cache_clear()
 
 
 def test_simulate_contract():

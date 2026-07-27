@@ -17,7 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -26,6 +26,9 @@ from besscalc import ENGINE_VERSION
 from besscalc.data import DataError
 from besscalc.economics import run_simulation
 from besscalc.models import BatterySpec, SimulationRequest, SimulationResult
+
+from .leads import LeadCreate, LeadSummary, create_lead, list_leads
+from .notifications import send_lead_notification
 
 TENANTS_DIR = Path(__file__).parent / "tenants"
 WIDGET_DIST = Path(__file__).parent.parent / "widget" / "dist"
@@ -55,10 +58,18 @@ class Branding(BaseModel):
     cta_url: str | None = None
 
 
+class PVProduct(BaseModel):
+    name: str
+    kwp: float
+    price_dkk_installed: float
+
+
 class TenantCatalog(BaseModel):
     tenant_id: str
     branding: Branding
     products: list[BatterySpec]
+    pv_products: list[PVProduct] = []
+    leads_enabled: bool = False
 
 
 class ApiSimulationRequest(BaseModel):
@@ -67,17 +78,27 @@ class ApiSimulationRequest(BaseModel):
 
 
 @lru_cache(maxsize=32)
-def load_tenant(tenant_id: str) -> TenantCatalog:
+def _load_tenant_raw(tenant_id: str) -> dict:
+    """Full parsed tenant YAML, incl. the internal `leads` block — never
+    returned directly to clients (see load_tenant/TenantCatalog, which is
+    the public-safe projection)."""
     safe = "".join(c for c in tenant_id if c.isalnum() or c in "-_")
     path = TENANTS_DIR / f"{safe}.yaml"
     if safe != tenant_id or not path.exists():
         raise HTTPException(status_code=404, detail=f"Ukendt tenant: {tenant_id}")
     with open(path, encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh)
+        return yaml.safe_load(fh)
+
+
+def load_tenant(tenant_id: str) -> TenantCatalog:
+    raw = _load_tenant_raw(tenant_id)
+    leads_cfg = raw.get("leads") or {}
     return TenantCatalog(
         tenant_id=tenant_id,
         branding=Branding(**raw["branding"]),
         products=[BatterySpec(**p) for p in raw["products"]],
+        pv_products=[PVProduct(**p) for p in raw.get("pv_products", [])],
+        leads_enabled=bool(leads_cfg.get("notify_email") or leads_cfg.get("api_key")),
     )
 
 
@@ -98,6 +119,32 @@ def simulate(body: ApiSimulationRequest) -> SimulationResult:
         return run_simulation(body.request)
     except DataError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/tenants/{tenant_id}/leads")
+def submit_lead(tenant_id: str, lead: LeadCreate) -> dict:
+    load_tenant(tenant_id)  # 404 on unknown tenant
+    try:
+        lead_id, summary = create_lead(tenant_id, lead)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    leads_cfg = _load_tenant_raw(tenant_id).get("leads") or {}
+    notify_email = leads_cfg.get("notify_email")
+    if notify_email:
+        send_lead_notification(notify_email, lead_id, lead.contact, summary)
+
+    return {"id": lead_id}
+
+
+@app.get("/api/v1/tenants/{tenant_id}/leads", response_model=list[LeadSummary])
+def get_leads(tenant_id: str, x_leads_key: str | None = Header(default=None)) -> list[LeadSummary]:
+    load_tenant(tenant_id)  # 404 on unknown tenant
+    leads_cfg = _load_tenant_raw(tenant_id).get("leads") or {}
+    expected_key = leads_cfg.get("api_key")
+    if not expected_key or x_leads_key != expected_key:
+        raise HTTPException(status_code=403, detail="Manglende eller forkert X-Leads-Key")
+    return list_leads(tenant_id)
 
 
 # --- demo conveniences -------------------------------------------------------

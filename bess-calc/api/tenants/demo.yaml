@@ -11,6 +11,13 @@ branding:
   cta_text: "Få et gratis tilbud"
   cta_url: "mailto:kontakt@demoenergi.dk?subject=Tilbud%20på%20batteri%20og%20solceller"
 
+# Internal — never exposed via GET /catalog (only a derived leads_enabled
+# boolean is). notify_email is where new-lead emails are sent; api_key
+# gates GET /api/v1/tenants/{id}/leads (header X-Leads-Key).
+leads:
+  notify_email: "leads@demoenergi.dk"
+  api_key: "demo-leads-key-change-me"
+
 products:
   - name: "Kompakt 5 kWh"
     capacity_kwh: 5.0
@@ -39,3 +46,14 @@ products:
     cycle_life: 6000
     lifetime_years: 15
     price_dkk_installed: 72000
+
+pv_products:
+  - name: "Lille anlæg"
+    kwp: 4.0
+    price_dkk_installed: 40000
+  - name: "Mellem anlæg"
+    kwp: 6.0
+    price_dkk_installed: 54000
+  - name: "Stort anlæg"
+    kwp: 9.0
+    price_dkk_installed: 78000

@@ -2,6 +2,9 @@
 data/raw/*
 !data/raw/.gitkeep
 
+# Lead-capture DB contains customer PII — local state only, never committed.
+data/leads.db
+
 widget/node_modules/
 
 # Commit the built widget bundle so the demo runs without a Node toolchain;

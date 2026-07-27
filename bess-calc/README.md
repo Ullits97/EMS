@@ -61,7 +61,7 @@ npm run build     # -> dist/widget.js (single IIFE bundle, committed)
 
 ```
 engine/      Python simulation engine (besscalc package + tests)
-data/        reference-year Parquets (committed) + raw downloads (ignored)
+data/        reference-year Parquets (committed) + raw downloads (ignored) + leads.db (local, ignored)
 ingestion/   one-off data-fetch/build scripts (runtime never calls the network)
 api/         FastAPI app + per-tenant YAML config (api/tenants/<id>.yaml)
 widget/      React 18 + Vite embeddable widget + embed/demo.html
@@ -71,6 +71,24 @@ widget/      React 18 + Vite embeddable widget + embed/demo.html
 
 One YAML per tenant in `api/tenants/` (branding + battery product catalog).
 No auth/admin UI in the MVP; copy `demo.yaml` to onboard a tenant.
+
+## Lead capture (proof of concept)
+
+A deliberate exception to the "no database" MVP stance (SPEC §13/§40), scoped
+to prove out sales value for installers: when a customer opts in with
+contact info on the widget's result screen, it's saved to a local SQLite DB
+(`data/leads.db`, gitignored — never committed, contains PII) and the
+tenant's installer is emailed a summary. Config, all optional/env-based:
+
+- Per tenant, in `api/tenants/<id>.yaml`, add a `leads:` block with
+  `notify_email` (where new-lead emails go) and `api_key` (required as the
+  `X-Leads-Key` header on `GET /api/v1/tenants/<id>/leads`). Omit the block
+  entirely to leave lead capture off for that tenant (`leads_enabled: false`
+  in the public catalog response, which the widget uses to hide the form).
+- `BESSCALC_LEADS_DB` — override the SQLite file path (default `data/leads.db`).
+- `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM` — outbound
+  mail server. If `SMTP_HOST` is unset, sending is skipped (logged) rather
+  than failing the request, so local dev/demo works without a real mailbox.
 
 ## Open items for the product owner (SPEC §14)
 
